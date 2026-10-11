@@ -1,0 +1,72 @@
+version: 1
+suite:
+  name: "offline-demo"
+  description: "Offline behavior contract demo using recorded response fixtures. No external model, network, or GPU required."
+  capture:
+    response_text: true
+    redact_secrets: true
+    save_endpoint_url: false
+
+endpoints:
+  reference:
+    adapter: recorded
+    fixtures_dir: "examples/offline-demo/fixtures/reference"
+    capabilities:
+      - chat_completions
+      - finish_reason
+  candidate:
+    adapter: recorded
+    fixtures_dir: "examples/offline-demo/fixtures/candidate"
+    capabilities:
+      - chat_completions
+      - finish_reason
+
+defaults:
+  timeout_seconds: 30
+
+tests:
+  - id: json-product-extraction
+    description: "Model must return valid JSON with product and quantity fields matching schema"
+    labels: ["json", "smoke"]
+    messages:
+      - role: system
+        content: "Return only a JSON object matching the requested schema."
+      - role: user
+        content: "Extract product=tea and quantity=3 from: Order three teas."
+    assertions:
+      - type: response_received
+      - type: non_empty_response
+      - type: valid_json
+      - type: json_schema
+        schema:
+          type: object
+          properties:
+            product:
+              type: string
+            quantity:
+              type: integer
+          required: ["product", "quantity"]
+          additionalProperties: false
+      - type: json_value
+        path: "$.quantity"
+        equals: 3
+
+  - id: smoke-chat
+    description: "Different prose between reference and candidate that still satisfies contract"
+    labels: ["smoke"]
+    messages:
+      - role: user
+        content: "Say hello."
+    assertions:
+      - type: response_received
+      - type: non_empty_response
+
+  - id: json-contract-failure-demo
+    description: "Demonstrates REGRESSION detection when candidate fails JSON structure contract"
+    labels: ["json", "regression-demo"]
+    messages:
+      - role: user
+        content: "Return JSON: {\"status\": \"ok\", \"count\": 5}"
+    assertions:
+      - type: response_received
+      - type: valid_json

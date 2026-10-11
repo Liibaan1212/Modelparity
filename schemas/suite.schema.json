@@ -1,0 +1,350 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://modelparity.dev/schemas/suite.schema.json",
+  "title": "ModelParity Suite",
+  "description": "Schema for a ModelParity test-suite YAML/JSON file.",
+  "type": "object",
+  "required": ["version", "suite", "endpoints", "tests"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1],
+      "description": "Suite schema version. Must be 1."
+    },
+    "suite": {
+      "$ref": "#/definitions/SuiteMeta"
+    },
+    "endpoints": {
+      "$ref": "#/definitions/Endpoints"
+    },
+    "defaults": {
+      "$ref": "#/definitions/GenerationDefaults"
+    },
+    "tests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/TestCase"
+      },
+      "description": "List of test cases in the suite."
+    }
+  },
+  "definitions": {
+    "SuiteMeta": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable name for the suite."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of the suite."
+        },
+        "capture": {
+          "$ref": "#/definitions/CaptureConfig"
+        }
+      }
+    },
+    "CaptureConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "response_text": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to capture the response text content."
+        },
+        "redact_secrets": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to redact secrets from captured data."
+        },
+        "save_endpoint_url": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to save the endpoint URL in the results."
+        }
+      }
+    },
+    "Endpoints": {
+      "type": "object",
+      "required": ["reference", "candidate"],
+      "additionalProperties": false,
+      "properties": {
+        "reference": {
+          "$ref": "#/definitions/EndpointConfig"
+        },
+        "candidate": {
+          "$ref": "#/definitions/EndpointConfig"
+        }
+      }
+    },
+    "EndpointConfig": {
+      "type": "object",
+      "required": ["adapter"],
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "type": "string",
+          "enum": ["openai_compatible", "recorded"],
+          "description": "Adapter type for this endpoint."
+        },
+        "base_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL for the API endpoint."
+        },
+        "model": {
+          "type": "string",
+          "description": "Model identifier to use for requests."
+        },
+        "api_key_env": {
+          "type": "string",
+          "description": "Name of the environment variable that holds the API key."
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "chat_completions",
+              "tool_calls",
+              "json_schema",
+              "finish_reason",
+              "seed",
+              "usage_tokens"
+            ]
+          },
+          "uniqueItems": true,
+          "description": "Declared capabilities of this endpoint."
+        }
+      }
+    },
+    "GenerationDefaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 60,
+          "description": "HTTP request timeout in seconds."
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 2.0,
+          "description": "Sampling temperature."
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum number of tokens to generate."
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Random seed for reproducibility."
+        }
+      }
+    },
+    "Message": {
+      "type": "object",
+      "required": ["role", "content"],
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["system", "user", "assistant"]
+        },
+        "content": {
+          "type": "string"
+        }
+      }
+    },
+    "ResponseFormat": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["text", "json_object"]
+        }
+      }
+    },
+    "GenerationOverrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reference": {
+          "type": "object",
+          "description": "Arbitrary generation parameters applied only to the reference endpoint."
+        },
+        "candidate": {
+          "type": "object",
+          "description": "Arbitrary generation parameters applied only to the candidate endpoint."
+        }
+      }
+    },
+    "TestCase": {
+      "type": "object",
+      "required": ["id", "messages"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Unique slug-safe identifier for this test."
+        },
+        "description": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "messages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/Message" }
+        },
+        "response_format": {
+          "$ref": "#/definitions/ResponseFormat"
+        },
+        "generation_overrides": {
+          "$ref": "#/definitions/GenerationOverrides"
+        },
+        "assertions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Assertion" }
+        }
+      }
+    },
+    "Assertion": {
+      "oneOf": [
+        { "$ref": "#/definitions/ResponseReceivedAssertion" },
+        { "$ref": "#/definitions/NonEmptyResponseAssertion" },
+        { "$ref": "#/definitions/ValidJsonAssertion" },
+        { "$ref": "#/definitions/JsonSchemaAssertion" },
+        { "$ref": "#/definitions/JsonValueAssertion" },
+        { "$ref": "#/definitions/ExactMatchAssertion" },
+        { "$ref": "#/definitions/NormalizedMatchAssertion" },
+        { "$ref": "#/definitions/ToolCallNameAssertion" },
+        { "$ref": "#/definitions/ToolCallArgsSchemaAssertion" },
+        { "$ref": "#/definitions/FinishReasonAssertion" }
+      ]
+    },
+    "ResponseReceivedAssertion": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["response_received"] }
+      }
+    },
+    "NonEmptyResponseAssertion": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["non_empty_response"] }
+      }
+    },
+    "ValidJsonAssertion": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["valid_json"] }
+      }
+    },
+    "JsonSchemaAssertion": {
+      "type": "object",
+      "required": ["type", "schema"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["json_schema"] },
+        "schema": {
+          "type": "object",
+          "description": "JSON Schema to validate the response against."
+        }
+      }
+    },
+    "JsonValueAssertion": {
+      "type": "object",
+      "required": ["type", "path", "equals"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["json_value"] },
+        "path": {
+          "type": "string",
+          "description": "JSONPath expression, e.g. '$.key'."
+        },
+        "equals": {
+          "description": "Expected value at the JSONPath location."
+        }
+      }
+    },
+    "ExactMatchAssertion": {
+      "type": "object",
+      "required": ["type", "expected"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["exact_match"] },
+        "expected": { "type": "string" }
+      }
+    },
+    "NormalizedMatchAssertion": {
+      "type": "object",
+      "required": ["type", "expected"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["normalized_match"] },
+        "expected": { "type": "string" },
+        "normalize": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["lowercase", "strip", "collapse_whitespace"]
+          },
+          "default": ["lowercase", "strip"]
+        }
+      }
+    },
+    "ToolCallNameAssertion": {
+      "type": "object",
+      "required": ["type", "expected_name"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["tool_call_name"] },
+        "expected_name": { "type": "string" }
+      }
+    },
+    "ToolCallArgsSchemaAssertion": {
+      "type": "object",
+      "required": ["type", "schema"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["tool_call_args_schema"] },
+        "schema": {
+          "type": "object",
+          "description": "JSON Schema to validate the tool call arguments against."
+        }
+      }
+    },
+    "FinishReasonAssertion": {
+      "type": "object",
+      "required": ["type", "expected"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["finish_reason"] },
+        "expected": { "type": "string" }
+      }
+    }
+  }
+}

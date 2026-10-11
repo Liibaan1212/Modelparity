@@ -1,0 +1,6 @@
+{
+  "content": "Status: ok, Count: 5",
+  "finish_reason": "stop",
+  "tool_calls": [],
+  "error": null
+}

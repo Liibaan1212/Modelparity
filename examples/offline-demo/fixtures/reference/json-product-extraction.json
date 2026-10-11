@@ -1,0 +1,6 @@
+{
+  "content": "{\"product\": \"tea\", \"quantity\": 3}",
+  "finish_reason": "stop",
+  "tool_calls": [],
+  "error": null
+}
